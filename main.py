@@ -37,5 +37,5 @@ CachedPlayer(
         pg.K_5: page_5,
         pg.K_m: page_5,
         pg.K_KP5: page_5,
-    }, scale=4, duration=50
+    }, scale=4, duration=30
 ).mainloop()

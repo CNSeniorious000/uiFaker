@@ -82,6 +82,8 @@ class CachedPlayer(AniPlayer):
     render_on = render_at = None
 
     def animate(self, _from, _to, style, reverse):
+        if _from.title == _to.title:
+            return print(f"invalid changing from {_from.title} to {_to.title}")
         for i in alive_it(np.linspace(0, 1, self.duration), title=f"{_from}->{_to}"):
             self.screen.blit(self.get_surface_at(_from, _to, i, style, reverse), (0, 0))
             self.ending()
@@ -90,7 +92,7 @@ class CachedPlayer(AniPlayer):
     @cache
     def get_surface_at(_from, _to, i, style, reverse):
         """get real-size pygame surface"""
-        print(f"getting surface @ {_from.title}->{_to.title}")
+        # print(f"getting surface @ {_from.title}->{_to.title}")
         player = CachedPlayer.current_player
         size = player.scaled_size
         return pg.image.frombuffer(
