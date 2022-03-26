@@ -1,4 +1,4 @@
-from main import *
+from faker import *
 
 
 def test_use():
