@@ -5,7 +5,7 @@ ctypes.windll.user32.SetProcessDPIAware(2)
 
 model_fluent = [0, 1 / 8, 1 / 2, 3 / 4, 7 / 8, 15 / 16, 31 / 32, 63 / 64, 127 / 128, 1]
 
-pg.display.set_mode((1, 1))
+pg.display.set_mode((1, 1), pg.HIDDEN)
 
 
 class Curve:
@@ -43,6 +43,7 @@ class Page(pg.Surface):
         return pg.image.load(f"assets/{title}.png").convert_alpha()
 
     def __init__(self, asset_title, depth, index):
+        self.title = asset_title
         surface: pg.Surface = self.load_surface(asset_title)
         print(f"{surface.get_flags() = }, {surface.get_bitsize() = }")
         super().__init__(surface.get_size(), surface.get_flags(), surface.get_bitsize())
@@ -51,7 +52,7 @@ class Page(pg.Surface):
         self.page_depth = depth
         self.page_index = index
 
-        self.__repr__ = lambda _: f"Page(title={asset_title}, {depth=}, {index=})"
+    __repr__ = __str__ = lambda self: f"Page(title={self.title}, depth={self.page_depth}, index={self.page_index})"
 
 
 class Style(enum.IntEnum):
@@ -100,12 +101,13 @@ class Faker(Curve):
         self.surface.blit(self.layer, (0, self.dock_top))
         self.surface.blit(self.cover, (0, 0))
 
-    def render_at(self, _last, _next, i, style: Style, reverse=False):
+    def render_on(self, _last, _next, i, style: Style, reverse=False):
         if reverse:
-            _last, _next = _next, _last
-            x = self.at(0, self.w, i)
+            self.render_at(_next, _last, self.at(0, self.w, i), style)
         else:
-            x = self.at(self.w, 0, i)
+            self.render_at(_last, _next, self.at(self.w, 0, i), style)
+
+    def render_at(self, _last, _next, x, style):
         anchor_upper = int(x), 0
         anchor_lower = int((x - self.w) / style), 0
         self.surface.blit(_last, anchor_lower)

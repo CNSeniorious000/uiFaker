@@ -15,10 +15,8 @@ def test_changing():
 
     for i in alive_it(range(player.duration)):
         with player as screen:
-            player.render_at(page_1, page_2, i / player.duration, Style.level)
-            screen.blit(player.surface, (0, 0))
+            player.render_on(page_1, page_2, i / player.duration, Style.level)
 
     for i in alive_it(range(player.duration)):
         with player as screen:
-            player.render_at(page_2, page_5, i / player.duration, Style.level, True)
-            screen.blit(player.surface, (0, 0))
+            player.render_on(page_2, page_5, i / player.duration, Style.level, True)

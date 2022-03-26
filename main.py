@@ -1,4 +1,4 @@
-from player import AniPlayer, Page, pg
+from player import CachedPlayer, Page, pg
 
 page_0 = Page("首页", 0, 0)
 page_1 = Page("发布", 1, 0)
@@ -7,7 +7,7 @@ page_3 = Page("量表参考", 1, 0)
 page_4 = Page("待办", 0, 1)
 page_5 = Page("我的", 0, 2)
 
-AniPlayer(
+CachedPlayer(
     start_page=page_0,
     page_map={
         # home
@@ -37,5 +37,5 @@ AniPlayer(
         pg.K_5: page_5,
         pg.K_m: page_5,
         pg.K_KP5: page_5,
-    }, scale=4, duration=40
+    }, scale=4, duration=50
 ).mainloop()
