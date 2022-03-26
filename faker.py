@@ -1,178 +1,121 @@
-from matplotlib import pyplot as plt
-import numpy as np
-import pygame as pg
-from scipy.interpolate import interp1d
-import ctypes, cv2
-from alive_progress import alive_it
+import numpy as np, pygame as pg, ctypes, cv2, enum
+from functools import cache
 
 ctypes.windll.user32.SetProcessDPIAware(2)
 
-model = [0, 1/8, 1/2, 3/4, 7/8, 15/16, 31/32, 63/64, 127/128, 1]
+model_fluent = [0, 1 / 8, 1 / 2, 3 / 4, 7 / 8, 15 / 16, 31 / 32, 63 / 64, 127 / 128, 1]
 
-f = lambda x: x
 
-def use(model):
-    global f
-    f = interp1d(np.linspace(0, 1, len(model)), model, "quadratic")
-
-def show(x, y):
-    plt.scatter(x, y, s=10)
-    plt.plot(x, y, c="red")
-    return plt.show()
-
-def show_f(n=32):
-    return show_map(0, 1, n)
-
-def show_map(start, end, n):
-    x = np.linspace(0, 1, n)
-    y = [get_value(start, end, ratio) for ratio in x]
-    return show(x, y)
-
-def get_value(start, end, ratio):
-    if ratio == 1:
-        return end
-    else:
-        return start + (end-start) * f(ratio)
-
-pg.init()
-screenx = 1440
-screeny = 2960
-height = 247
-clock = pg.time.Clock()
-dock_cover_add = pg.Surface((screenx, height), pg.SRCALPHA)
-dock_cover = pg.Surface((screenx, height), pg.SRCALPHA)
-dock_cover_add.fill((32, 32, 32))
-dock_cover.fill((255, 255, 255, 32))
-
-class Display:
-    def __init__(self):
-        self.screen = pg.display.set_mode((screenx//2, screeny//2), vsync=True)
-        self.surface = pg.Surface((screenx, screeny), flags=pg.SRCALPHA)
-
-    def __enter__(self):
-        return self.surface
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pg.transform.smoothscale(
-            self.surface, (screenx//2, screeny//2), self.screen
-        )
-        pg.display.flip()
-        pg.display.set_caption(f"FPS: {clock.get_fps():.2f}")
-        self.parse_events()
-        clock.tick(60)
+class Curve:
+    f = lambda x: x
 
     @staticmethod
-    def parse_events():
-        if pg.event.get(pg.QUIT):
-            exit()
+    def show(x, y):
+        from matplotlib import pyplot as plt
+        plt.scatter(x, y, s=10)
+        plt.plot(x, y, c="red")
+        return plt.show()
+
+    def show_map(self, start, end, n):
+        return Curve.show(x := np.linspace(0, 1, n), [self.at(start, end, ratio) for ratio in x])
+
+    def show_f(self, n=32):
+        return Curve.show_map(self, 0, 1, n)
+
+    def use_model(self, model, kind="quadratic"):
+        from scipy.interpolate import interp1d
+        self.f = interp1d(np.linspace(0, 1, len(model)), model, kind)
+
+    def at(self, start, end, ratio):
+        if 0 < ratio < 1:
+            return start + (end - start) * self.f(ratio)
+        else:
+            return start if ratio <= 0 else end
+
+
+class Page(pg.Surface):
+    @staticmethod
+    @cache
+    def load_surface(title):
+        print(f"loading {title} for the first time ...")
+        return pg.image.load(f"assets/{title}.png").convert_alpha()
+
+    def __init__(self, asset_title, depth, index):
+        surface: pg.Surface = self.load_surface(asset_title)
+        print(f"{surface.get_flags() = }, {self.get_bitsize() = }")
+        super().__init__(surface.get_size(), surface.get_flags(), surface.get_bitsize())
+        self.get_buffer().write(surface.get_buffer().raw)
+
+        self.page_depth = depth
+        self.page_index = index
+
+
+class Style(enum.IntEnum):
+    moving = 1
+    level = 2
+
+
+class Faker(Curve):
+    def __init__(self, w=1440, h=2960, h_dock=247, alpha=32, duration=40, cover=None):
+        self.w = w
+        self.h = h
+        self.h_dock = h_dock
+        self.alpha = alpha
+        self.duration = duration
+        self.cover = Page.load_surface(cover or "cover")
+
+        self.clock = pg.time.Clock()
+
+        self.layer_add = pg.Surface((w, h_dock), pg.SRCALPHA)
+        self.layer = pg.Surface((w, h_dock), pg.SRCALPHA)
+
+        self.layer_add.fill((alpha, alpha, alpha))
+        self.layer.fill((255, 255, 255, alpha))
+
+        self.surface = pg.Surface((w, h), pg.SRCALPHA)
+        self.black = self.surface.convert()
+        self.black.fill("#000000")
+
+        self.dock_top = h - h_dock
+
+    def inspect_surface(self, surface=None):
+        from matplotlib import pyplot as plt
+        plt.imshow(pg.surfarray.pixels3d(surface or self.surface).swapaxes(0, 1))
+        plt.show()
 
     def blur_dock(self):
         img = pg.surfarray.pixels3d(self.surface)
-        img[:, screeny - height:] = cv2.GaussianBlur(
-            img[:, screeny-height:], (155,155), 35
+        img[:, self.dock_top:] = cv2.GaussianBlur(
+            img[:, self.dock_top:], (155, 155), 55
         )
 
-    def add_dock_and_cover(self):
+    def post_processing(self):
+        """add dock and cover"""
         self.blur_dock()
-        self.surface.blit(dock_cover_add, (0, screeny - height), special_flags=pg.BLEND_RGB_ADD)
-        self.surface.blit(dock_cover, (0, screeny - height))
-        self.surface.blit(cover, (0, 0))
+        self.surface.blit(self.layer_add, (0, self.dock_top), special_flags=pg.BLEND_RGB_ADD)
+        self.surface.blit(self.layer, (0, self.dock_top))
+        self.surface.blit(self.cover, (0, 0))
 
-
-down: pg.Surface
-up: pg.Surface
-cover = pg.image.load("assets/cover.png")
-display = Display()
-black = display.surface.copy()
-
-
-def inspect_surface(surface=display.surface):
-    plt.imshow(pg.surfarray.pixels3d(surface).swapaxes(0, 1))
-    plt.show()
-
-
-def do(x):
-    with display as screen:
-        pos_down = (x // 2 - screenx // 2, 0)
-        pos_up = (x, 0)
-
-        screen.blit(down, pos_down)
-
-        black.fill([0, 0, 0, int(get_value(64, 0, (x/screenx)**2.5))])
-        screen.blit(black, pos_down)
-
-        screen.blit(up, pos_up)
-        display.add_dock_and_cover()
-
-
-total = 40
-
-count = 0
-
-
-def render_in():
-    global count
-    for i in alive_it(range(total)):
-        do(get_value(screenx, 0, i / total))
-        pg.image.save(display.surface, f"output/{count + i}.png")
-
-    count += total
-
-def render_out():
-    global count
-    for i in alive_it(range(total)):
-        do(get_value(0, screenx, i / total))
-        pg.image.save(display.surface, f"output/{count + i}.png")
-
-    count += total
-
-def render_static(page):
-    global count
-    with display as screen:
-        screen.blit(page, (0,0))
-        display.add_dock_and_cover()
-    it = iter(alive_it(range(total)))
-    i = next(it)
-    pg.image.save(display.surface, f"output/{count + i}.png")
-    b = open(f"output/{count + i}.png", "rb").read()
-    for i in it:
-        open(f"output/{count + i}.png", "wb").write(b)
-
-    count += total
+    def render_at(self, _last, _next, i, style: Style, reverse=False):
+        if reverse:
+            _last, _next = _next, _last
+            x = self.at(0, self.w, i)
+        else:
+            x = self.at(self.w, 0, i)
+        anchor_upper = int(x), 0
+        anchor_lower = int((x - self.w) / style), 0
+        self.surface.blit(_last, anchor_lower)
+        if style is Style.level:
+            self.black.set_alpha(int(self.at(64, 0, (x / self.w) ** 2.5)))
+            self.surface.blit(self.black, anchor_lower)
+        self.surface.blit(_next, anchor_upper)
+        self.post_processing()
 
 
 if __name__ == '__main__':
-    use(model)
-    page_1 = pg.image.load("assets/首页.png")
-    page_2 = pg.image.load("assets/发布.png")
-    page_3 = pg.image.load("assets/参与.png")
-    page_4 = pg.image.load("assets/量表参考.png")
-    page_5 = pg.image.load("assets/待办.png")
-    page_6 = pg.image.load("assets/我的.png")
-
-    render_static(page_1)
-
-    down, up = page_1, page_2
-    render_in()
-    render_static(page_2)
-    render_out()
-
-    down, up = page_1, page_3
-    render_in()
-    render_static(page_3)
-    render_out()
-
-    down, up = page_1, page_4
-    render_in()
-    render_static(page_4)
-
-    down, up = page_4, page_5
-    render_in()
-    render_static(page_5)
-
-    down, up = page_5, page_6
-    render_in()
-    render_static(page_6)
-
-    down, up = page_1, page_6
-    render_out()
+    page_1 = Page.load_surface("assets/首页.png")
+    page_2 = Page.load_surface("assets/发布.png")
+    page_3 = Page.load_surface("assets/参与.png")
+    page_4 = Page.load_surface("assets/量表参考.png")
+    page_5 = Page.load_surface("assets/待办.png")
+    page_6 = Page.load_surface("assets/我的.png")
