@@ -73,45 +73,88 @@ class AniPlayer(Player):
 
 class CachedPlayer(AniPlayer):
     current_player: "CachedPlayer" = None
-    persistent_cache = Cache("cache")
+    persistent_cache = Cache("cache", cull_limit=0)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, sampling=0.5, **kwargs):
         super().__init__(*args, **kwargs)
         CachedPlayer.current_player = self
+        self.sampling = sampling
+        self.animate = self.animate_blurred
 
     render_on = render_at = None
 
     def animate(self, _from, _to, style, reverse):
-        if _from.title == _to.title:
-            return print(f"invalid changing from {_from.title} to {_to.title}")
-        for i in alive_it(np.linspace(0, 1, self.duration), title=f"{_from}->{_to}"):
-            self.screen.blit(self.get_surface_at(_from, _to, i, style, reverse), (0, 0))
+        if (title_from := _from.title) == (title_to := _to.title):
+            return print(f"invalid changing from {title_from} to {title_to}")
+        for i in alive_it(np.linspace(0, 1, self.duration), title=f"{title_from}->{title_to}", calibrate=60):
+            self.screen.blit(self.get_surface_at(title_from, title_to, i, style, reverse), (0, 0))
             self.ending()
+
+    def animate_blurred(self, _from, _to, style, reverse):
+        if (title_from := _from.title) == (title_to := _to.title):
+            return print(f"invalid changing from {title_from} to {title_to}")
+        it = iter(alive_it(np.linspace(0, 1, self.duration), title=f"{title_from}->{title_to}", calibrate=60))
+        i = next(it)
+        for j in it:
+            self.screen.blit(self.get_surface_in(title_from, title_to, i, j, style, reverse), (0, 0))
+            i = j
+            self.ending()
+        # ending
+        self.screen.blit(self.get_surface_at(title_from, title_to, 1, style, reverse), (0, 0))
+        self.ending()
 
     @staticmethod
     @cache
-    def get_surface_at(_from, _to, i, style, reverse):
-        """get real-size pygame surface"""
-        # print(f"getting surface @ {_from.title}->{_to.title}")
-        player = CachedPlayer.current_player
-        size = player.scaled_size
+    def get_surface_in(title_from, title_to, i, j, style, reverse):
+        self = CachedPlayer.current_player
+        size = self.scaled_size
         return pg.image.frombuffer(
-            CachedPlayer.get_buffer_at(_to.title, _from.title, player.at(0, player.w, i), style, size),
+            self.get_buffer_in(title_to, title_from, self.at(0, self.w, i), self.at(0, self.w, j), style, size)
+            if reverse else
+            self.get_buffer_in(title_from, title_to, self.at(self.w, 0, i), self.at(self.w, 0, j), style, size),
             size, "BGR"
-        ).convert() if reverse else pg.image.frombuffer(
-            CachedPlayer.get_buffer_at(_from.title, _to.title, player.at(player.w, 0, i), style, size),
+        )
+
+    @staticmethod
+    # @cache
+    def get_surface_at(title_from, title_to, i, style, reverse):
+        """get real-size pygame surface"""
+        self = CachedPlayer.current_player
+        size = self.scaled_size
+        return pg.image.frombuffer(
+            self.get_buffer_at(title_to, title_from, self.at(0, self.w, i), style, size)
+            if reverse else
+            self.get_buffer_at(title_from, title_to, self.at(self.w, 0, i), style, size),
             size, "BGR"
         ).convert()
 
     @staticmethod
     @persistent_cache.memoize()
+    def get_buffer_in(title_from, title_to, x, y, style, size):
+        self = CachedPlayer.current_player
+        sample = np.linspace(x, y, int(abs(y - x) * self.sampling + 1))
+        lth = len(sample)
+        print(f"{x}->{y} sampling at {lth}")
+        image = np.zeros((*self.scaled_size[::-1], 3), np.float_)
+        for x in sample:
+            image += self.get_buffer_at(title_from, title_to, x, style, size)
+        return (image / lth).astype(np.uint8)
+
+    @staticmethod
+    # @cache
+    # @persistent_cache.memoize()
     def get_buffer_at(title_from, title_to, x, style, size):
         """get real-size ndarray buffer"""
-        print(f"getting buffer @ {title_from}->{title_to}")
-        player = CachedPlayer.current_player
-        Faker.render_at(player, Page.load_surface(title_from), Page.load_surface(title_to), x, style)
-        surf = player.surface
+        # print(f"getting buffer @ {title_from}->{title_to}")
+        self = CachedPlayer.current_player
+        Faker.render_at(self, Page.load_surface(title_from), Page.load_surface(title_to), x, style)
+        surf = self.surface
         return cv2.resize(
             np.frombuffer(surf.get_buffer(), np.uint8).reshape(*surf.get_size()[::-1], -1)[..., :3],
             size, interpolation=cv2.INTER_AREA
         )
+
+    def full_cache(self):
+        from itertools import permutations
+        for _from, _to in permutations(set(self.page_map.values()), 2):
+            self.show_animation(_from, _to)

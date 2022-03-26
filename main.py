@@ -7,7 +7,7 @@ page_3 = Page("量表参考", 1, 0)
 page_4 = Page("待办", 0, 1)
 page_5 = Page("我的", 0, 2)
 
-CachedPlayer(
+player = CachedPlayer(
     start_page=page_0,
     page_map={
         # home
@@ -37,5 +37,7 @@ CachedPlayer(
         pg.K_5: page_5,
         pg.K_m: page_5,
         pg.K_KP5: page_5,
-    }, scale=4, duration=30
-).mainloop()
+    }, scale=2, duration=40
+)
+player.full_cache()
+player.mainloop()

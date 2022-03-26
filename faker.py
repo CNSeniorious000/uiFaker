@@ -45,7 +45,6 @@ class Page(pg.Surface):
     def __init__(self, asset_title, depth, index):
         self.title = asset_title
         surface: pg.Surface = self.load_surface(asset_title)
-        print(f"{surface.get_flags() = }, {surface.get_bitsize() = }")
         super().__init__(surface.get_size(), surface.get_flags(), surface.get_bitsize())
         self.get_buffer().write(surface.get_buffer().raw)
 
