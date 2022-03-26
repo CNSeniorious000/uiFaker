@@ -5,9 +5,11 @@ ctypes.windll.user32.SetProcessDPIAware(2)
 
 model_fluent = [0, 1 / 8, 1 / 2, 3 / 4, 7 / 8, 15 / 16, 31 / 32, 63 / 64, 127 / 128, 1]
 
+pg.display.set_mode((1, 1))
+
 
 class Curve:
-    f = lambda x: x
+    f = staticmethod(lambda x: x)
 
     @staticmethod
     def show(x, y):
@@ -42,12 +44,14 @@ class Page(pg.Surface):
 
     def __init__(self, asset_title, depth, index):
         surface: pg.Surface = self.load_surface(asset_title)
-        print(f"{surface.get_flags() = }, {self.get_bitsize() = }")
+        print(f"{surface.get_flags() = }, {surface.get_bitsize() = }")
         super().__init__(surface.get_size(), surface.get_flags(), surface.get_bitsize())
         self.get_buffer().write(surface.get_buffer().raw)
 
         self.page_depth = depth
         self.page_index = index
+
+        self.__repr__ = lambda _: f"Page(title={asset_title}, {depth=}, {index=})"
 
 
 class Style(enum.IntEnum):

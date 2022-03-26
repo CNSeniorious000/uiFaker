@@ -1,0 +1,41 @@
+from player import AniPlayer, Page, pg
+
+page_0 = Page("首页", 0, 0)
+page_1 = Page("发布", 1, 0)
+page_2 = Page("参与", 1, 0)
+page_3 = Page("量表参考", 1, 0)
+page_4 = Page("待办", 0, 1)
+page_5 = Page("我的", 0, 2)
+
+AniPlayer(
+    start_page=page_0,
+    page_map={
+        # home
+        pg.K_0: page_0,
+        pg.K_h: page_0,
+        pg.K_KP0: page_0,
+        pg.K_SPACE: page_0,
+        pg.K_RETURN: page_0,
+        pg.K_KP_ENTER: page_0,
+        # post
+        pg.K_1: page_1,
+        pg.K_p: page_1,
+        pg.K_KP1: page_1,
+        # join
+        pg.K_2: page_2,
+        pg.K_j: page_2,
+        pg.K_KP2: page_2,
+        # reference
+        pg.K_3: page_3,
+        pg.K_r: page_3,
+        pg.K_KP3: page_3,
+        # to-do
+        pg.K_4: page_4,
+        pg.K_t: page_4,
+        pg.K_KP4: page_4,
+        # mine
+        pg.K_5: page_5,
+        pg.K_m: page_5,
+        pg.K_KP5: page_5,
+    }, scale=4, duration=40
+).mainloop()
