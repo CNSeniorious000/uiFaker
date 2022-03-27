@@ -1,4 +1,5 @@
 from player import CachedPlayer, Page, pg
+import sys
 
 page_0 = Page("首页", 0, 0)
 page_1 = Page("发布", 1, 0)
@@ -7,8 +8,18 @@ page_3 = Page("量表参考", 1, 0)
 page_4 = Page("待办", 0, 1)
 page_5 = Page("我的", 0, 2)
 
+try:
+    duration = int(sys.argv[-1])
+except (ValueError, TypeError):
+    duration = 40
+    # BUG:
+    # setting duration at higher number may cause x < 0 sometimes
+    # because the interpolation may be out of bound of [0,1]
+
 player = CachedPlayer(
     start_page=page_0,
+    duration=duration,
+    scale=2,
     page_map={
         # home
         pg.K_0: page_0,
@@ -37,7 +48,7 @@ player = CachedPlayer(
         pg.K_5: page_5,
         pg.K_m: page_5,
         pg.K_KP5: page_5,
-    }, scale=3, duration=40
+    }
 )
 player.full_cache()
 player.mainloop()

@@ -1,6 +1,7 @@
-from faker import Faker, Page, Style, model_fluent, pg, np, cv2, cache
+from faker import Faker, Page, Style, model_fluent, pg, np, cv2
 from alive_progress import alive_it
 from contextlib import suppress
+from functools import lru_cache
 from joblib import Memory
 from math import gcd
 
@@ -9,7 +10,7 @@ class Player(Faker):
     def __init__(self, w=1440, h=2960, *args, scale=2, **kwargs):
         print(f"{gcd(w, h) = }")
         self.scaled_size = (w // scale, h // scale)
-        self.screen = pg.display.set_mode(self.scaled_size, vsync=True)
+        self.screen = pg.display.set_mode(self.scaled_size, pg.HWACCEL, 24, vsync=True)
         super().__init__(w, h, *args, **kwargs)
 
     def __enter__(self):
@@ -104,7 +105,7 @@ class CachedPlayer(AniPlayer):
         self.ending()
 
     @staticmethod
-    @cache
+    @lru_cache(120)
     def get_surface_in(title_from, title_to, i, j, style, reverse):
         self = CachedPlayer.current_player
         size = self.scaled_size
@@ -118,7 +119,7 @@ class CachedPlayer(AniPlayer):
         )
 
     @staticmethod
-    @cache
+    @lru_cache(120)
     def get_surface_at(title_from, title_to, i, style, reverse):
         """get real-size pygame surface"""
         self = CachedPlayer.current_player
@@ -139,7 +140,7 @@ class CachedPlayer(AniPlayer):
         print(f"{x}->{y} sampling at {lth}")
         image = np.zeros((*self.scaled_size[::-1], 3), np.float_)
         for x in sample:
-            image += self.get_buffer_at(title_from, title_to, x, style, size)
+            image += self.get_buffer_at(title_from, title_to, int(x), style, size)
         return (image / lth).astype(np.uint8)
 
     @staticmethod
@@ -158,6 +159,7 @@ class CachedPlayer(AniPlayer):
         while True:  # wait until
             if pg.event.get(pg.KEYDOWN):
                 break
+            self.clock.tick(30)
         from itertools import permutations
         for _from, _to in permutations(set(self.page_map.values()), 2):
             self.show_animation(self.current, _from)
