@@ -37,7 +37,7 @@ player = CachedPlayer(
         pg.K_5: page_5,
         pg.K_m: page_5,
         pg.K_KP5: page_5,
-    }, scale=2, duration=40
+    }, scale=3, duration=40
 )
 player.full_cache()
 player.mainloop()

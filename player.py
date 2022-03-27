@@ -116,15 +116,15 @@ class CachedPlayer(AniPlayer):
         )
 
     @staticmethod
-    # @cache
+    @cache
     def get_surface_at(title_from, title_to, i, style, reverse):
         """get real-size pygame surface"""
         self = CachedPlayer.current_player
         size = self.scaled_size
         return pg.image.frombuffer(
-            self.get_buffer_at(title_to, title_from, self.at(0, self.w, i), style, size)
+            self.get_buffer_at.__wrapped__(title_to, title_from, self.at(0, self.w, i), style, size)
             if reverse else
-            self.get_buffer_at(title_from, title_to, self.at(self.w, 0, i), style, size),
+            self.get_buffer_at.__wrapped__(title_from, title_to, self.at(self.w, 0, i), style, size),
             size, "BGR"
         ).convert()
 
@@ -141,8 +141,7 @@ class CachedPlayer(AniPlayer):
         return (image / lth).astype(np.uint8)
 
     @staticmethod
-    # @cache
-    # @persistent_cache.memoize()
+    @persistent_cache.memoize()
     def get_buffer_at(title_from, title_to, x, style, size):
         """get real-size ndarray buffer"""
         # print(f"getting buffer @ {title_from}->{title_to}")
