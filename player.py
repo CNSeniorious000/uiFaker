@@ -1,7 +1,7 @@
 from faker import Faker, Page, Style, model_fluent, pg, np, cv2, cache
 from alive_progress import alive_it
 from contextlib import suppress
-from diskcache import Cache
+from joblib import Memory
 from math import gcd
 
 
@@ -73,9 +73,9 @@ class AniPlayer(Player):
 
 class CachedPlayer(AniPlayer):
     current_player: "CachedPlayer" = None
-    persistent_cache = Cache("cache", cull_limit=0)
+    persistent_cache = Memory("cache", compress=3, verbose=False)
 
-    def __init__(self, *args, sampling=0.5, **kwargs):
+    def __init__(self, *args, sampling=1, **kwargs):
         super().__init__(*args, **kwargs)
         CachedPlayer.current_player = self
         self.sampling = sampling
@@ -109,9 +109,11 @@ class CachedPlayer(AniPlayer):
         self = CachedPlayer.current_player
         size = self.scaled_size
         return pg.image.frombuffer(
-            self.get_buffer_in(title_to, title_from, self.at(0, self.w, i), self.at(0, self.w, j), style, size)
+            self.get_buffer_in(
+                title_to, title_from, int(self.at(0, self.w, i)), int(self.at(0, self.w, j)), style, size)
             if reverse else
-            self.get_buffer_in(title_from, title_to, self.at(self.w, 0, i), self.at(self.w, 0, j), style, size),
+            self.get_buffer_in(
+                title_from, title_to, int(self.at(self.w, 0, i)), int(self.at(self.w, 0, j)), style, size),
             size, "BGR"
         )
 
@@ -122,14 +124,14 @@ class CachedPlayer(AniPlayer):
         self = CachedPlayer.current_player
         size = self.scaled_size
         return pg.image.frombuffer(
-            self.get_buffer_at.__wrapped__(title_to, title_from, self.at(0, self.w, i), style, size)
+            self.get_buffer_at(title_to, title_from, int(self.at(0, self.w, i)), style, size)
             if reverse else
-            self.get_buffer_at.__wrapped__(title_from, title_to, self.at(self.w, 0, i), style, size),
+            self.get_buffer_at(title_from, title_to, int(self.at(self.w, 0, i)), style, size),
             size, "BGR"
-        ).convert()
+        )
 
     @staticmethod
-    @persistent_cache.memoize()
+    @persistent_cache.cache
     def get_buffer_in(title_from, title_to, x, y, style, size):
         self = CachedPlayer.current_player
         sample = np.linspace(x, y, int(abs(y - x) * self.sampling + 1))
@@ -141,10 +143,9 @@ class CachedPlayer(AniPlayer):
         return (image / lth).astype(np.uint8)
 
     @staticmethod
-    @persistent_cache.memoize()
+    @persistent_cache.cache
     def get_buffer_at(title_from, title_to, x, style, size):
         """get real-size ndarray buffer"""
-        # print(f"getting buffer @ {title_from}->{title_to}")
         self = CachedPlayer.current_player
         Faker.render_at(self, Page.load_surface(title_from), Page.load_surface(title_to), x, style)
         surf = self.surface
@@ -154,6 +155,10 @@ class CachedPlayer(AniPlayer):
         )
 
     def full_cache(self):
+        while True:  # wait until
+            if pg.event.get(pg.KEYDOWN):
+                break
         from itertools import permutations
         for _from, _to in permutations(set(self.page_map.values()), 2):
+            self.show_animation(self.current, _from)
             self.show_animation(_from, _to)

@@ -5,8 +5,6 @@ ctypes.windll.user32.SetProcessDPIAware(2)
 
 model_fluent = [0, 1 / 8, 1 / 2, 3 / 4, 7 / 8, 15 / 16, 31 / 32, 63 / 64, 127 / 128, 1]
 
-pg.display.set_mode((1, 1), pg.HIDDEN)
-
 
 class Curve:
     f = staticmethod(lambda x: x)
@@ -40,12 +38,12 @@ class Page(pg.Surface):
     @cache
     def load_surface(title):
         print(f"loading {title} for the first time ...")
-        return pg.image.load(f"assets/{title}.png").convert_alpha()
+        return pg.image.load(f"assets/{title}.png")
 
     def __init__(self, asset_title, depth, index):
         self.title = asset_title
         surface: pg.Surface = self.load_surface(asset_title)
-        super().__init__(surface.get_size(), surface.get_flags(), surface.get_bitsize())
+        super().__init__(surface.get_size(), pg.HWSURFACE, surface.get_bitsize())
         self.get_buffer().write(surface.get_buffer().raw)
 
         self.page_depth = depth
@@ -70,14 +68,14 @@ class Faker(Curve):
 
         self.clock = pg.time.Clock()
 
-        self.layer_add = pg.Surface((w, h_dock), pg.SRCALPHA)
-        self.layer = pg.Surface((w, h_dock), pg.SRCALPHA)
+        self.layer_add = pg.Surface((w, h_dock), pg.SRCALPHA | pg.HWSURFACE)
+        self.layer = pg.Surface((w, h_dock), pg.SRCALPHA | pg.HWSURFACE)
 
         self.layer_add.fill((alpha, alpha, alpha))
         self.layer.fill((255, 255, 255, alpha))
 
-        self.surface = pg.Surface((w, h), pg.SRCALPHA)
-        self.black = self.surface.convert()
+        self.surface = pg.Surface((w, h), pg.HWSURFACE, depth=24)
+        self.black = self.surface.copy()
         self.black.fill("#000000")
 
         self.dock_top = h - h_dock
