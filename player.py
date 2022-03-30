@@ -1,9 +1,17 @@
-from faker import Faker, Page, Style, model_fluent, pg, np, cv2
+from faker import *
 from alive_progress import alive_it
 from contextlib import suppress
 from functools import lru_cache
 from joblib import Memory
 from math import gcd
+
+
+class Page:
+    def __init__(self, title, depth, index):
+        self.title = title
+        self.surface = Surface.load(title)
+        self.page_depth = depth
+        self.page_index = index
 
 
 class Player(Faker):
@@ -148,7 +156,7 @@ class CachedPlayer(AniPlayer):
     def get_buffer_at(title_from, title_to, x, style, size):
         """get real-size ndarray buffer"""
         self = CachedPlayer.current_player
-        Faker.render_at(self, Page.load_surface(title_from), Page.load_surface(title_to), x, style)
+        Faker.render_at(self, Page.load(title_from), Page.load(title_to), x, style)
         surf = self.surface
         return cv2.resize(
             np.frombuffer(surf.get_buffer(), np.uint8).reshape(*surf.get_size()[::-1], -1)[..., :3],
