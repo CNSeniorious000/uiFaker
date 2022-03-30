@@ -197,11 +197,9 @@ class Page(AbstractLayer):
 class Dock(AbstractLayer):
     faker: "AppFaker"
 
-    def __init__(self, luma, alpha, k_size, sigma):
+    def __init__(self, luma, alpha):
         self.color = luma, luma, luma
         self.alpha = alpha
-        self.k_sizer = k_size, k_size
-        self.sigma = sigma
 
     @cached_property
     def h(self):
@@ -231,11 +229,17 @@ class Dock(AbstractLayer):
         return surface
 
     def draw(self):
+        global t1, t2
+        from time import perf_counter as time
         self.screen.fill(self.color, self.rect, pg.BLEND_ADD)
         dirty_rect = self.screen.blit(self.surface, self.anchor)
-
         dock_area = pg.surfarray.pixels3d(self.screen)[:, self.y:]
-        dock_area[:] = cv2.GaussianBlur(dock_area, self.k_sizer, self.sigma)
+        t = time()
+        dock_area[:] = cv2.GaussianBlur(
+            cv2.blur(cv2.blur(dock_area, (37, 77)), (77, 37)),
+            (0, 0), sigmaX=7, sigmaY=17
+        )
+        t2 += time() - t
         return dirty_rect
 
 
@@ -274,7 +278,7 @@ class AppFaker(Faker):
         self.cover = StaticCover()
         self.shadow = SolidShadow()
         self.Pages = {}
-        self.dock = Dock(32, 32, 155, 55)
+        self.dock = Dock(27, 37)
 
         self.cached_render_motion_once = surfcache((w, h), w + w + 1)(self.cached_render_motion_once)
         self.cached_render_motion_multi = surfcache((w, h))(self.cached_render_motion_multi)
@@ -300,14 +304,8 @@ class AppFaker(Faker):
             y = round(self.at(self.w, 0, j))
 
         # maybe once more
-        global t1, t2
-        from time import perf_counter as time
-        t = time()
         self.surface.blit(self.cached_render_motion_multi(page_last.name, page_next.name, x, y, style), (0, 0))
-        t1 += time() - t
-        t = time()
         self.render_static_once()
-        t2 += time() - t
 
     def render_motion_once(self, page_last: Page, page_next: Page, x_next, style):
         assert isinstance(x_next, int), x_next
@@ -341,6 +339,16 @@ class AppFaker(Faker):
 
 
 class AppPlayer(AppFaker):
+    def refresh(self):
+        self.screen.blit(self.surface, (0, 0))
+        pg.display.flip()
+        # parse events
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                return -1
+        pg.display.set_caption(f"FPS: {self.clock.get_fps():.2f}")
+        self.clock.tick(60)
+
     @cached_property
     def screen(self):
         return pg.display.set_mode(self.size, pg.HWACCEL, 24, vsync=True)
@@ -353,11 +361,8 @@ class AppPlayer(AppFaker):
         i = next(it)
         for j in it:
             self.render_in(page_from, page_to, i, j, style, reverse)
-            self.screen.blit(self.surface, (0, 0))
-            pg.display.flip()
-            pg.event.get()
-            self.clock.tick(0)
-            pg.display.set_caption(f"{self.clock.get_fps()}")
+            if self.refresh() == -1:
+                break
             i = j
 
 

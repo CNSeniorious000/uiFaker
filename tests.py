@@ -10,14 +10,10 @@ def test_new_mechanism():
     player = AppPlayer(720, 1480, 124)
 
     player.animate(page_home, page_post, Style.level, False)
-    # player.debug_inspect()
-    print(f"{player.cached_render_motion_once.cache_info() = }")
-    print(f"{player.cached_render_motion_multi.cache_info() = }")
-    player.animate(page_home, page_post, Style.level, False)
-    print(f"{player.cached_render_motion_once.cache_info() = }")
-    print(f"{player.cached_render_motion_multi.cache_info() = }")
-    player.animate(page_post, page_home, Style.level, True)
-    # player.debug_inspect()
+    player.animate(page_post, page_join, Style.level, True)
+    player.animate(page_join, page_reference, Style.level, True)
+    player.animate(page_reference, page_home, Style.level, True)
+    player.animate(page_home, page_todo, Style.level, True)
     print(f"{player.cached_render_motion_once.cache_info() = }")
     print(f"{player.cached_render_motion_multi.cache_info() = }")
 
@@ -25,5 +21,6 @@ def test_new_mechanism():
 if __name__ == '__main__':
     test_new_mechanism()
     import faker
+
     print(faker.t1 / 2)
     print(faker.t2 / 2)
