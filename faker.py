@@ -2,7 +2,6 @@ from functools import cache, lru_cache, wraps, cached_property
 import numpy as np, pygame as pg, ctypes, cv2, imageio
 from blosc import compress, decompress
 from contextlib import contextmanager
-from enum import IntEnum, auto
 from time import perf_counter
 from diskcache import Index
 
@@ -28,12 +27,7 @@ def show_time_map():
               f"[bright_green]{60 * val[0] / val[1]}")
 
 
-class Style(IntEnum):
-    moving = auto()
-    level = auto()
-
-
-class Surface(pg.Surface):
+class Asset(pg.Surface):
     def __init__(self, name, size=None, interpolation=None, flags=0b0):
         self.name = name
         filepath = f"assets/{name}.png"
@@ -85,13 +79,13 @@ class Surface(pg.Surface):
         return cls(name)
 
     def __eq__(self, other):
-        return isinstance(other, Surface) and self.name == other.name
+        return isinstance(other, Asset) and self.name == other.name
 
     def __hash__(self):
         return hash(self.name)
 
 
-def surfcache(size, threshold=None, pixel_format="BGR"):
+def surfcache(size, pixel_format="BGR"):
     """cache a function that returns a surface"""
 
     def decorator(func):
@@ -108,7 +102,7 @@ def surfcache(size, threshold=None, pixel_format="BGR"):
                 memo[args] = compress(data, 1, 9, cname="lz4hc")
                 return surface
 
-        return lru_cache(maxsize=threshold)(wrapped)
+        return wrapped
 
     return decorator
 
@@ -146,6 +140,10 @@ class AbstractLayer:
 
     def draw(self, *args, **kwargs) -> pg.Rect:
         return self.screen.blit(self.surface, self.anchor)
+
+    @cached_property
+    def dirty(self):
+        return True
 
     @cached_property
     def faker(self):

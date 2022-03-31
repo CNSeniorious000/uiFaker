@@ -1,4 +1,10 @@
+from enum import IntEnum, auto
 from faker import *
+
+
+class Style(IntEnum):
+    moving = auto()
+    level = auto()
 
 
 class StaticCover(AbstractLayer):
@@ -6,7 +12,7 @@ class StaticCover(AbstractLayer):
 
     @cached_property
     def surface(self):
-        return Surface("cover", self.faker.size, flags=pg.SRCALPHA)
+        return Asset("cover", self.faker.size, flags=pg.SRCALPHA)
 
 
 class SolidShadow(AbstractLayer):
@@ -39,7 +45,7 @@ class Page(AbstractLayer):
 
     @cached_property
     def surface(self):
-        return Surface(self.name, self.faker.size)
+        return Asset(self.name, self.faker.size)
 
     def draw(self, x):
         return self.screen.blit(self.surface, (x, 0))
@@ -106,8 +112,8 @@ class AppFaker(Faker):
         self.shadow = SolidShadow()
         self.dock = Dock(27, 37)
 
-        self.cached_render_motion_once = surfcache((w, h), w + w + 1)(self.cached_render_motion_once)
-        self.cached_render_motion_multi = surfcache((w, h))(self.cached_render_motion_multi)
+        self.cached_render_motion_once = lru_cache(w + w + 1)(surfcache((w, h))(self.cached_render_motion_once))
+        self.cached_render_motion_multi = cache(surfcache((w, h))(self.cached_render_motion_multi))
 
     def render_at(self, page_last, page_next, i, style, reverse):
         if reverse:

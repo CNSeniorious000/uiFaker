@@ -9,7 +9,7 @@ from math import gcd
 class Page:
     def __init__(self, title, depth, index):
         self.title = title
-        self.surface = Surface.load(title)
+        self.surface = Asset.load(title)
         self.page_depth = depth
         self.page_index = index
 
