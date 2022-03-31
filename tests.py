@@ -1,5 +1,7 @@
-def test_new_mechanism():
-    from faker import AppPlayer, Page, Style
+from appFaker import AppPlayer, Page, Style, show_time_map
+
+
+def test_faking_app():
     page_home = Page("首页")
     page_post = Page("发布")
     page_join = Page("参与")
@@ -12,15 +14,14 @@ def test_new_mechanism():
     player.animate(page_home, page_post, Style.level, False)
     player.animate(page_post, page_join, Style.level, True)
     player.animate(page_join, page_reference, Style.level, True)
-    player.animate(page_reference, page_home, Style.level, True)
-    player.animate(page_home, page_todo, Style.level, True)
+    player.animate(page_reference, page_home, Style.level, False)
+    player.animate(page_home, page_todo, Style.level, False)
+    player.animate(page_todo, page_mine, Style.level, True)
     print(f"{player.cached_render_motion_once.cache_info() = }")
     print(f"{player.cached_render_motion_multi.cache_info() = }")
 
+    show_time_map()
+
 
 if __name__ == '__main__':
-    test_new_mechanism()
-    import faker
-
-    print(faker.t1 / 2)
-    print(faker.t2 / 2)
+    test_faking_app()
