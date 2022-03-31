@@ -10,6 +10,9 @@ model_fluent = [0, 1 / 8, 1 / 2, 3 / 4, 7 / 8, 15 / 16, 31 / 32, 63 / 64, 127 / 
 
 null = lambda x: x
 
+t1 = 0
+t2 = 0
+
 
 class Style(IntEnum):
     moving = auto()
@@ -252,6 +255,7 @@ class Faker(Curve):
         self.w = w
         self.h = h
         self.size = w, h
+
         self.clock = pg.time.Clock()
         self.surface = pg.Surface((w, h), pg.HWSURFACE, 24)
 
@@ -262,9 +266,9 @@ class Faker(Curve):
         plt.imshow(pg.surfarray.pixels3d(surface or self.surface).swapaxes(0, 1))
         plt.show()
 
-
-t1 = 0
-t2 = 0
+    @cached_property
+    def screen(self):
+        return pg.display.set_mode(self.size, pg.HWACCEL, 24, vsync=True)
 
 
 class AppFaker(Faker):
@@ -277,7 +281,6 @@ class AppFaker(Faker):
 
         self.cover = StaticCover()
         self.shadow = SolidShadow()
-        self.Pages = {}
         self.dock = Dock(27, 37)
 
         self.cached_render_motion_once = surfcache((w, h), w + w + 1)(self.cached_render_motion_once)
@@ -348,10 +351,6 @@ class AppPlayer(AppFaker):
                 return -1
         pg.display.set_caption(f"FPS: {self.clock.get_fps():.2f}")
         self.clock.tick(60)
-
-    @cached_property
-    def screen(self):
-        return pg.display.set_mode(self.size, pg.HWACCEL, 24, vsync=True)
 
     def animate(self, page_from: Page, page_to: Page, style, reverse):
         if (name_from := page_from.name) == (name_to := page_to.name):
