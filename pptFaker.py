@@ -1,19 +1,64 @@
-from itertools import pairwise
+try:
+    from itertools import pairwise
+except ImportError:  # to support python3.9
+    def pairwise(iterable):
+        from itertools import tee
+        a, b = tee(iterable)
+        next(b, None)
+        return zip(a, b)
 from enum import IntEnum, auto
-import numpy as np, random
+import numpy as np, random, cv2
 from faker import *
 
-# 120 for FHD; 180 for QHD; 240 for UHD
-block_size = 240
+# 80 for HD; 120 for FHD; 180 for QHD; 240 for UHD
+block_size = 120
 block_shape = block_size, block_size
 screenx, screeny = 16 * block_size, 9 * block_size
 
 
-def parse(*numbers):
+def parse(*numbers) -> int or list[int]:
     if len(numbers) == 0:
-        return block_size * numbers[0]
+        return round(block_size * numbers[0])
     else:
-        return [block_size * n for n in numbers]
+        return [round(block_size * n) for n in numbers]
+
+
+class AcrylicImage(AbstractLayer):
+    def __init__(self, image_name, x, y, w, h, luma=8, alpha=80):
+        self.anchor = parse(x, y)
+        self.size = parse(w, h)
+        self.rect = pg.Rect(self.anchor, self.size)
+        self.image = Asset(f"{image_name}_{block_size}", self.size, flags=pg.SRCALPHA)
+        self.luma = luma, luma, luma
+        self.alpha = pg.Surface(self.size, depth=24)
+        self.alpha.fill((255 - luma, 255 - luma, 255 - luma))
+        self.alpha.set_alpha(alpha)
+
+    @property
+    def shaded(self):
+        layer: RandomFlipper
+        return [
+            (layer.buffer, rect := layer.rect.clip(self.rect), rect.move(-layer.x, -layer.y))
+            for layer in Slide.current.layers
+            if layer.rect.colliderect(self.rect) and layer is not self and layer.optimized
+        ]
+
+    def draw(self):
+        rect = self.rect
+        self.screen.blits(self.shaded)
+        self.screen.blit(self.alpha, rect)
+        self.screen.fill(self.luma, rect, pg.BLEND_ADD)
+        with timer("blurring"):
+            x, y = self.anchor
+            w, h = self.size
+            area = pg.surfarray.pixels3d(self.screen)[x:x + w, y:y + h]
+            area[:] = cv2.GaussianBlur(
+                cv2.blur(cv2.blur(area, (47, 57)), (57, 47)),
+                (0, 0), sigmaX=7, sigmaY=7
+            )
+            del area
+        self.screen.blit(self.image, rect)
+        return rect
 
 
 class RandomFlipper(AbstractLayer):
@@ -61,30 +106,35 @@ class RandomFlipper(AbstractLayer):
         self.name_last = f"{random.choice(surface_names)}0"
 
         self.pair = None
+        self.optimized = NotImplemented
 
     @property
     def dirty(self):
         if self.motion:
             try:
                 self.pair = self.next_pair
+                self.optimized = False
                 return True
             except StopIteration:
                 self.__delattr__("pos_it")  # reset iterator
-                if not self.name_last.endswith("0"):
+                if self.name_last.endswith("2"):
                     RandomFlipper.semaphore += 1
                 self.name_last = self.name_next  # set last to next
                 self.__delattr__("name_next")  # reset next
                 self.motion = RandomFlipper.Motion.idle
+                self.buffer.blit(Asset.load(self.name_last, block_shape), (0, 0))
+                self.optimized = True
                 return False
         else:
             if random.randrange(60 * 4) == 0:  # 进入working状态
                 self.motion = random.choice(RandomFlipper.motions)
                 if RandomFlipper.semaphore:
-                    self.chromatic = random.choice((1, 2))
+                    self.chromatic = 2
                     RandomFlipper.semaphore -= 1
                 else:
-                    self.chromatic = 0
+                    self.chromatic = random.choice((0, 0, 0, 1))
 
+            self.optimized = True
             return False
 
     def draw(self) -> pg.Rect:
@@ -147,7 +197,9 @@ class RandomFlipper(AbstractLayer):
 
     @cached_property
     def buffer(self):
-        return pg.Surface(block_shape, depth=24)
+        surface = pg.Surface(block_shape, depth=24)
+        surface.blit(self.screen, (0, 0), self.rect)
+        return surface
 
     @cached_property
     def shadow(self):
@@ -178,9 +230,16 @@ class RandomFlipper(AbstractLayer):
         RandomFlipper.instance = block
         block.full_cache()
 
+    @cached_property
+    def rect(self) -> pg.Rect:
+        return pg.Rect(self.anchor, block_shape)
 
-class AbstractSlide:
-    def __init__(self, last_: "AbstractSlide" = None, next_: "AbstractSlide" = None):
+
+class Slide:
+    current: "Slide" = None
+
+    def __init__(self, last_: "Slide" = None, next_: "Slide" = None):
+        Slide.current = self
         self.last_ = last_
         self.next_ = next_
         self.layers: list[AbstractLayer] = []
@@ -188,10 +247,18 @@ class AbstractSlide:
     def render(self):
         pg.display.update([layer.draw() for layer in self.layers if layer.dirty])
 
+    @cached_property
+    def faker(self):
+        return Faker.instance
+
+    @cached_property
+    def screen(self):
+        return self.faker.screen
+
 
 class PowerPointFaker(Faker):
-    def __init__(self, slides: list[AbstractSlide] = None, title=""):
-        super().__init__(screenx, screeny, title)
+    def __init__(self, slides: list[Slide] = None, title="", flags=0b0):
+        super().__init__(screenx, screeny, title, flags)
         self.slides = slides or []
         self.buffer = self.screen
 

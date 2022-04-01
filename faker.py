@@ -33,7 +33,7 @@ class Asset(pg.Surface):
         filepath = f"assets/{name}.png"
         if size is None:
             surface = pg.image.load(filepath)
-            super().__init__(surface.get_size(), depth=surface.get_bitsize())
+            super().__init__(surface.get_size(), flags, depth=surface.get_bitsize())
             self.get_buffer().write(surface.get_buffer().raw)
         else:
             image = imageio.imread(filepath)
@@ -135,11 +135,12 @@ class Curve:
 
 
 class AbstractLayer:
-    surface: pg.Surface = NotImplemented
+    buffer: pg.Surface = NotImplemented
     anchor: tuple[int, int] = NotImplemented
+    rect: pg.Rect = NotImplemented
 
     def draw(self, *args, **kwargs) -> pg.Rect:
-        return self.screen.blit(self.surface, self.anchor)
+        return self.screen.blit(self.buffer, self.anchor)
 
     @cached_property
     def dirty(self):
@@ -150,7 +151,7 @@ class AbstractLayer:
         return Faker.instance
 
     @cached_property
-    def screen(self):
+    def screen(self):  # default to headless screen
         return self.faker.buffer
 
     __str__ = __repr__ = classmethod(lambda cls: cls.__name__)
@@ -165,16 +166,17 @@ class AbstractLayer:
 class Faker(Curve):
     instance: "Faker" = None
 
-    def __init__(self, w, h, title=""):
+    def __init__(self, w, h, title="", flags=0b0):
         Faker.instance = self
         self.title = title
+        self.flags = flags
 
         self.w = w
         self.h = h
         self.size = w, h
 
         self.clock = pg.time.Clock()
-        self.buffer = pg.Surface((w, h), depth=24)
+        self.buffer = pg.Surface((w, h), depth=24)  # for headless usage
 
         self.use_model(model_fluent)
 
@@ -185,7 +187,7 @@ class Faker(Curve):
 
     @cached_property
     def screen(self):
-        return pg.display.set_mode(self.size, pg.HWACCEL, 24, vsync=True)
+        return pg.display.set_mode(self.size, self.flags, 24, vsync=True)
 
     @timer("refresh")
     def refresh(self):
@@ -196,3 +198,10 @@ class Faker(Curve):
         pg.display.set_caption(f"{self.title} @ FPS: {self.clock.get_fps():.2f}")
         # self.clock.tick(60)
         self.clock.tick_busy_loop(60)
+
+    def centering(self):
+        import win32api
+        display_x, display_y = list(map(win32api.GetSystemMetrics, (0, 1)))
+        ctypes.windll.user32.MoveWindow(pg.display.get_wm_info()["window"],
+                                        (display_x - self.w) // 2, (display_y - self.h) // 2,
+                                        self.w, self.h, True)

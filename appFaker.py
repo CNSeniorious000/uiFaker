@@ -11,18 +11,18 @@ class StaticCover(AbstractLayer):
     anchor = 0, 0
 
     @cached_property
-    def surface(self):
-        return Asset("cover", self.faker.size, flags=pg.SRCALPHA)
+    def buffer(self):
+        return Asset.load("cover", self.faker.size, None, pg.SRCALPHA)
 
 
 class SolidShadow(AbstractLayer):
     @cached_property
-    def surface(self):
+    def buffer(self):
         return pg.Surface(Faker.instance.size, depth=8)
 
     def draw(self, x, alpha):
-        self.surface.set_alpha(alpha)
-        return self.screen.blit(self.surface, (x, 0))
+        self.buffer.set_alpha(alpha)
+        return self.screen.blit(self.buffer, (x, 0))
 
 
 class Page(AbstractLayer):
@@ -44,11 +44,11 @@ class Page(AbstractLayer):
     __repr__ = __str__
 
     @cached_property
-    def surface(self):
-        return Asset(self.name, self.faker.size)
+    def buffer(self):
+        return Asset.load(self.name, self.faker.size)
 
     def draw(self, x):
-        return self.screen.blit(self.surface, (x, 0))
+        return self.screen.blit(self.buffer, (x, 0))
 
     def __hash__(self):
         return hash(self.name)
@@ -183,7 +183,7 @@ class AppPlayer(AppFaker):
             if self.refresh() == -1:
                 break
             i = j
-        self.buffer.blit(page_to.surface, (0, 0))  # the last frame
+        self.buffer.blit(page_to.buffer, (0, 0))  # the last frame
         self.render_static_once()
         self.refresh()
 

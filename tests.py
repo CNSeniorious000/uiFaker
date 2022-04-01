@@ -24,9 +24,9 @@ def test_faking_app():
 
 
 def test_faking_ppt():
-    from pptFaker import AbstractSlide, RandomFlipper, PowerPointFaker
+    from pptFaker import Slide, RandomFlipper, PowerPointFaker
 
-    class HomeSlide(AbstractSlide):
+    class HomeSlide(Slide):
         def __init__(self):
             super().__init__()
             names = list("例会&培训")
