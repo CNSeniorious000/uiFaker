@@ -151,7 +151,7 @@ class AbstractLayer:
 
     @cached_property
     def screen(self):
-        return self.faker.surface
+        return self.faker.buffer
 
     __str__ = __repr__ = classmethod(lambda cls: cls.__name__)
 
@@ -173,15 +173,26 @@ class Faker(Curve):
         self.size = w, h
 
         self.clock = pg.time.Clock()
-        self.surface = pg.Surface((w, h), pg.HWSURFACE, 24)
+        self.buffer = pg.Surface((w, h), pg.HWSURFACE, 24)
 
         self.use_model(model_fluent)
 
     def debug_inspect(self, surface=None):
         from matplotlib import pyplot as plt
-        plt.imshow(pg.surfarray.pixels3d(surface or self.surface).swapaxes(0, 1))
+        plt.imshow(pg.surfarray.pixels3d(surface or self.buffer).swapaxes(0, 1))
         plt.show()
 
     @cached_property
     def screen(self):
         return pg.display.set_mode(self.size, pg.HWACCEL, 24, vsync=True)
+
+    @timer("refresh")
+    def refresh(self):
+        self.screen.blit(self.buffer, (0, 0))
+        pg.display.flip()
+        # parse events
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                return -1
+        pg.display.set_caption(f"FPS: {self.clock.get_fps():.2f}")
+        self.clock.tick(60)

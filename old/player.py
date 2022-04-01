@@ -22,10 +22,10 @@ class Player(Faker):
         super().__init__(w, h, *args, **kwargs)
 
     def __enter__(self):
-        return self.surface
+        return self.buffer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pg.transform.smoothscale(self.surface, self.scaled_size, self.screen)
+        pg.transform.smoothscale(self.buffer, self.scaled_size, self.screen)
         self.ending()
 
     def ending(self):
@@ -157,7 +157,7 @@ class CachedPlayer(AniPlayer):
         """get real-size ndarray buffer"""
         self = CachedPlayer.current_player
         Faker.render_at(self, Page.load(title_from), Page.load(title_to), x, style)
-        surf = self.surface
+        surf = self.buffer
         return cv2.resize(
             np.frombuffer(surf.get_buffer(), np.uint8).reshape(*surf.get_size()[::-1], -1)[..., :3],
             size, interpolation=cv2.INTER_AREA

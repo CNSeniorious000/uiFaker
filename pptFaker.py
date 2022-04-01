@@ -5,22 +5,16 @@ import numpy as np, random
 from faker import *
 
 # 120 for FHD; 160 for QHD; 240 for UHD
-block_size = 240
+block_size = 120
 block_shape = block_size, block_size
 screenx, screeny = 16 * block_size, 9 * block_size
 
 
-def parse_grid_coordination(*numbers):
+def parse(*numbers):
     if len(numbers) == 0:
         return block_size * numbers[0]
     else:
         return (block_size * n for n in numbers)
-
-
-class AbstractSlide:
-    def __init__(self, last_: "AbstractSlide" = None, next_: "AbstractSlide" = None):
-        self.last_ = last_
-        self.next_ = next_
 
 
 class Motion(IntEnum):
@@ -32,7 +26,7 @@ class Motion(IntEnum):
 
 
 class RandomFlipper(AbstractLayer):
-    semaphore = 4
+    semaphore = 8
     duration = 40
 
     @cached_property
@@ -52,15 +46,15 @@ class RandomFlipper(AbstractLayer):
     def name_next(self):
         while (name_next := random.choice(self.names)) == self.name_last:
             pass  # retry
-        return name_next
+        return f"{name_next}{self.chromatic}"
 
     def __init__(self, surface_names: list[str], grid_x, grid_y):
-        self.anchor = self.x, self.y = parse_grid_coordination(grid_x, grid_y)
+        self.anchor = self.x, self.y = parse(grid_x, grid_y)
 
         self.names = surface_names
         self.motion = Motion.idle
-        self.chromatic = False
-        self.name_last = random.choice(surface_names)
+        self.chromatic = 0
+        self.name_last = f"{random.choice(surface_names)}0"
 
         self.pair = None
 
@@ -79,12 +73,10 @@ class RandomFlipper(AbstractLayer):
             if random.randrange(60 * 3) == 0:  # 进入working状态
                 self.motion = Motion(random.randint(1, 4))
                 if self.semaphore:
-                    self.chromatic = True
+                    self.chromatic = random.choice((1, 2))
                     self.semaphore -= 1
                 else:
-                    self.chromatic = False
-
-                return True
+                    self.chromatic = 0
 
             return False
 
@@ -140,8 +132,8 @@ class RandomFlipper(AbstractLayer):
         else:
             raise ValueError(direction)
 
-        self.buffer.blits(((Asset(name_last), last_anchor, last_rect),
-                           (Asset(name_next), next_anchor, next_rect),
+        self.buffer.blits(((Asset.load(name_last), last_anchor, last_rect),
+                           (Asset.load(name_next), next_anchor, next_rect),
                            (self.shadow, last_anchor, last_rect)), False)
 
         return self.buffer.copy()
@@ -153,3 +145,29 @@ class RandomFlipper(AbstractLayer):
     @cached_property
     def shadow(self):
         return pg.Surface(block_shape, pg.HWSURFACE, 24)
+
+
+class AbstractSlide:
+    def __init__(self, last_: "AbstractSlide" = None, next_: "AbstractSlide" = None):
+        self.last_ = last_
+        self.next_ = next_
+        self.layers: list[AbstractLayer] = []
+
+    def render(self):
+        pg.display.update([layer.draw() for layer in self.layers if layer.dirty])
+
+
+class PowerPointFaker(Faker):
+    def __init__(self, slides: list[AbstractSlide]):
+        super().__init__(screenx, screeny)
+        self.slides = slides
+        assert self.screen
+
+    @cached_property
+    def slide(self):
+        return next(iter(self.slides))
+
+    def mainloop(self):
+        while True:
+            self.slide.render()
+            self.refresh()

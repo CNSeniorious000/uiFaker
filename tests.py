@@ -23,5 +23,9 @@ def test_faking_app():
     show_time_map()
 
 
+def test_faking_ppt():
+    pass
+
+
 if __name__ == '__main__':
     test_faking_app()

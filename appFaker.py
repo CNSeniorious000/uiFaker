@@ -123,7 +123,7 @@ class AppFaker(Faker):
             x = int(self.at(self.w, 0, i))
 
         # maybe once more
-        self.surface.blit(self.cached_render_motion_once(page_last.name, page_next.name, x, style), (0, 0))
+        self.buffer.blit(self.cached_render_motion_once(page_last.name, page_next.name, x, style), (0, 0))
         self.render_static_once()
 
     def render_in(self, page_last, page_next, i, j, style, reverse):
@@ -136,7 +136,7 @@ class AppFaker(Faker):
             y = round(self.at(self.w, 0, j))
 
         # maybe once more
-        self.surface.blit(self.cached_render_motion_multi(page_last.name, page_next.name, x, y, style), (0, 0))
+        self.buffer.blit(self.cached_render_motion_multi(page_last.name, page_next.name, x, y, style), (0, 0))
         self.render_static_once()
 
     def render_motion_once(self, page_last: Page, page_next: Page, x_next, style):
@@ -149,7 +149,7 @@ class AppFaker(Faker):
 
     def cached_render_motion_once(self, name_last, name_next, x_next, style):
         self.render_motion_once(Page(name_last), Page(name_next), x_next, style)
-        return self.surface.copy()
+        return self.buffer.copy()
 
     def cached_render_motion_multi(self, name_last, name_next, x, y, style):
         assert x != y
@@ -162,8 +162,8 @@ class AppFaker(Faker):
                 name_last, name_next, x, style
             ).get_buffer(), np.uint8).reshape(h, w, 3)
 
-        self.surface.blit(pg.image.frombuffer((image / len(sample)).astype(np.uint8), (w, h), "BGR"), (0, 0))
-        return self.surface.copy()
+        self.buffer.blit(pg.image.frombuffer((image / len(sample)).astype(np.uint8), (w, h), "BGR"), (0, 0))
+        return self.buffer.copy()
 
     def render_static_once(self):
         self.dock.draw()
@@ -171,17 +171,6 @@ class AppFaker(Faker):
 
 
 class AppPlayer(AppFaker):
-    @timer("refresh")
-    def refresh(self):
-        self.screen.blit(self.surface, (0, 0))
-        pg.display.flip()
-        # parse events
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                return -1
-        pg.display.set_caption(f"FPS: {self.clock.get_fps():.2f}")
-        self.clock.tick(60)
-
     def animate(self, page_from: Page, page_to: Page, style, reverse):
         if (name_from := page_from.name) == (name_to := page_to.name):
             return print(f"invalid changing from {name_from} to {name_to}")
@@ -194,7 +183,7 @@ class AppPlayer(AppFaker):
             if self.refresh() == -1:
                 break
             i = j
-        self.surface.blit(page_to.surface, (0, 0))  # the last frame
+        self.buffer.blit(page_to.surface, (0, 0))  # the last frame
         self.render_static_once()
         self.refresh()
 
