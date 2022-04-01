@@ -4,7 +4,7 @@ import numpy as np, random
 from faker import *
 
 # 120 for FHD; 180 for QHD; 240 for UHD
-block_size = 120
+block_size = 240
 block_shape = block_size, block_size
 screenx, screeny = 16 * block_size, 9 * block_size
 

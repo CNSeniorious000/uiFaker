@@ -24,7 +24,23 @@ def test_faking_app():
 
 
 def test_faking_ppt():
-    pass
+    from pptFaker import AbstractSlide, RandomFlipper, PowerPointFaker
+
+    class HomeSlide(AbstractSlide):
+        def __init__(self):
+            super().__init__()
+            names = list("例会&培训")
+
+            RandomFlipper.do_full_cache(names)
+
+            self.layers.extend([
+                RandomFlipper(names, i, j)
+                for i in range(16) for j in range(9)
+            ])
+
+    slide = HomeSlide()
+    ppt = PowerPointFaker([slide], "4.2主视觉demo")
+    ppt.mainloop()
 
 
 if __name__ == '__main__':
