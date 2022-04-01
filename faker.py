@@ -33,7 +33,7 @@ class Asset(pg.Surface):
         filepath = f"assets/{name}.png"
         if size is None:
             surface = pg.image.load(filepath)
-            super().__init__(surface.get_size(), pg.HWSURFACE, surface.get_bitsize())
+            super().__init__(surface.get_size(), depth=surface.get_bitsize())
             self.get_buffer().write(surface.get_buffer().raw)
         else:
             image = imageio.imread(filepath)
@@ -70,13 +70,13 @@ class Asset(pg.Surface):
 
                 raw = cv2.resize(image, size, interpolation=interpolation)
 
-            super().__init__(size, pg.HWSURFACE | flags, 8 * image.size // w_from // h_from)
+            super().__init__(size, flags, 8 * image.size // w_from // h_from)
             self.get_buffer().write(raw)
 
     @classmethod
     @cache
-    def load(cls, name):
-        return cls(name)
+    def load(cls, name, size=None, interpolation=None, flags=0b0):
+        return cls(name, size, interpolation, flags)
 
     def __eq__(self, other):
         return isinstance(other, Asset) and self.name == other.name
@@ -165,15 +165,16 @@ class AbstractLayer:
 class Faker(Curve):
     instance: "Faker" = None
 
-    def __init__(self, w, h):
+    def __init__(self, w, h, title=""):
         Faker.instance = self
+        self.title = title
 
         self.w = w
         self.h = h
         self.size = w, h
 
         self.clock = pg.time.Clock()
-        self.buffer = pg.Surface((w, h), pg.HWSURFACE, 24)
+        self.buffer = pg.Surface((w, h), depth=24)
 
         self.use_model(model_fluent)
 
@@ -188,11 +189,10 @@ class Faker(Curve):
 
     @timer("refresh")
     def refresh(self):
-        self.screen.blit(self.buffer, (0, 0))
-        pg.display.flip()
         # parse events
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return -1
-        pg.display.set_caption(f"FPS: {self.clock.get_fps():.2f}")
-        self.clock.tick(60)
+        pg.display.set_caption(f"{self.title} @ FPS: {self.clock.get_fps():.2f}")
+        # self.clock.tick(60)
+        self.clock.tick_busy_loop(60)

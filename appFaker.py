@@ -18,7 +18,7 @@ class StaticCover(AbstractLayer):
 class SolidShadow(AbstractLayer):
     @cached_property
     def surface(self):
-        return pg.Surface(Faker.instance.size, pg.HWSURFACE, 8)
+        return pg.Surface(Faker.instance.size, depth=8)
 
     def draw(self, x, alpha):
         self.surface.set_alpha(alpha)
@@ -83,7 +83,7 @@ class Dock(AbstractLayer):
 
     @cached_property
     def surface(self):
-        surface = pg.Surface(self.size, pg.HWSURFACE, 8)
+        surface = pg.Surface(self.size, depth=8)
         surface.fill(255)
         surface.set_alpha(self.alpha)
         return surface
@@ -186,6 +186,11 @@ class AppPlayer(AppFaker):
         self.buffer.blit(page_to.surface, (0, 0))  # the last frame
         self.render_static_once()
         self.refresh()
+
+    def refresh(self):
+        self.screen.blit(self.buffer, (0, 0))
+        pg.display.flip()
+        Faker.refresh(self)
 
 
 def use_null():
