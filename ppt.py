@@ -18,3 +18,4 @@ if __name__ == '__main__':
     slide = HomeSlide()
     ppt = PowerPointFaker([slide], "2022年4月2日例会培训主视觉demo")
     ppt.mainloop()
+    show_time_map()
