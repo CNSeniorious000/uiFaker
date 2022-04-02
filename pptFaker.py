@@ -9,21 +9,22 @@ except ImportError:  # to support python3.9
 import numpy as np, pygame as pg, random, cv2
 from pygame.gfxdraw import filled_circle
 from contextlib import suppress
-from collections import deque
 from enum import IntEnum, auto
+from collections import deque
+from itertools import count
 from faker import *
 
 # 80 for HD; 120 for FHD; 160 for QHD; 240 for UHD
-block_size = 240
+block_size = 120
 block_shape = block_size, block_size
 screenx, screeny = 16 * block_size, 9 * block_size
 
 
-def parse(*numbers) -> int or list[int]:
+def parse(*numbers) -> int or tuple[int]:
     if len(numbers) == 1:
         return round(block_size * numbers[0])
     else:
-        return [round(block_size * n) for n in numbers]
+        return tuple(round(block_size * n) for n in numbers)
 
 
 class Layer(AbstractLayer):
@@ -55,6 +56,7 @@ class LeftTopCircles(Layer):
             pass
         return result
 
+    @timer("drawing circles")
     def draw(self):
         self.buffer.blit(self.screen, (0, 0), self.rect)  # draw background
         circles = self.circles
@@ -94,7 +96,7 @@ class ReversedLayer(AbstractLayer):
 
 
 class AcrylicImage(Layer):
-    def __init__(self, image_name, x, y, w, h, luma=10, alpha=80):
+    def __init__(self, image_name, x, y, w, h, luma=10, alpha=135):
         super().__init__(x, y, w, h)
         self.image = Asset(f"{image_name}_{block_size}", self.size, flags=pg.SRCALPHA)
         self.luma = luma, luma, luma
@@ -205,6 +207,7 @@ class RandomFlipper(AbstractLayer):
             self.optimized = True
             return False
 
+    @timer("drawing tiles")
     def draw(self) -> pg.Rect:
         RandomFlipper.instance = self
         return self.screen.blit(
@@ -306,22 +309,75 @@ class RandomFlipper(AbstractLayer):
 class Slide:
     current: "Slide" = None
 
-    def __init__(self, last_: "Slide" = None, next_: "Slide" = None):
+    def __init__(self):
         Slide.current = self
-        self.last_ = last_
-        self.next_ = next_
         self.layers: list[AbstractLayer] = []
 
     def render(self):
         pg.display.update([layer.draw() for layer in self.layers if layer.dirty])
 
     @cached_property
-    def faker(self):
+    def faker(self) -> "PowerPointFaker":
         return Faker.instance
 
     @cached_property
     def screen(self):
         return self.faker.screen
+
+    @cached_property  # 暂时没想到别的办法，临时之举
+    def buffer(self):
+        return self.screen
+
+
+class StaticSlide(Slide):
+    def __init__(self, image_name):
+        super().__init__()
+        self.buffer = Asset.load(image_name, parse(16, 9))
+        self.first = True
+
+    def render(self):
+        if self.first:
+            self.screen.blit(self.buffer, (0, 0))
+            pg.display.flip()
+            self.first = False
+
+
+class InterSlide(Slide):
+    def __init__(self, last_=None, next_=None, reverse=False, duration=60):
+        super().__init__()
+        self.last_: Slide = last_
+        self.next_: Slide = next_
+        self.reverse = reverse  # 方向是否为从右往左，否则默认从左往右
+        self.duration = duration
+        self.w, self.h = parse(16, 9)
+
+    @cached_property
+    def pos_iterator(self):
+        return (round(self.faker.at(self.w, 0, i)) for i in np.linspace(0, 1, self.duration))
+
+    @property
+    def pos(self):
+        return next(self.pos_iterator, None)
+
+    @timer("scene change")
+    def render(self):
+        # can use parameter "surface" to avoid copy from screen to buffer
+        pos = self.pos
+        if pos is None:
+            self.faker.slide = self.next_
+            return self.next_.render()
+
+        self.last_.render()
+        last_buffer: pg.Surface = self.last_.buffer
+        self.next_.render()
+        next_buffer: pg.Surface = self.next_.buffer
+
+        if self.reverse:
+            pass
+        else:
+            self.screen.blit(last_buffer, (pos - self.w, 0))
+            self.screen.blit(next_buffer, (pos, 0))
+            pg.display.flip()
 
 
 class PowerPointFaker(Faker):
@@ -329,14 +385,52 @@ class PowerPointFaker(Faker):
         super().__init__(screenx, screeny, title, flags)
         self.slides = slides or []
         self.buffer = self.screen
+        self.now = 0
 
-    @cached_property
+    @property
     def slide(self):
-        return next(iter(self.slides))
+        return self.slides[self.now]
+
+    @slide.setter
+    def slide(self, slide):
+        assert slide in self.slides
+        self.index = self.slides.index(slide)
+        assert slide is self.slide
+
+    @property
+    def index(self):
+        return self.now
+
+    @index.setter
+    def index(self, index):
+        assert 0 <= index < len(self.slides)
+        self.now = index
+        Slide.current = self.slide
+
+    @timer("parsing events")
+    def refresh(self):
+        # parse events
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                return -1
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_F5:
+                    pg.display.flip()
+                elif event.key == pg.K_RIGHT:
+                    self.index += 1
+                elif event.key == pg.K_LEFT:
+                    self.index -= 1
+
+        pg.display.set_caption(f"{self.title} @ FPS: {self.clock.get_fps():.2f}")
+        self.clock.tick_busy_loop(60)
 
     def mainloop(self):
-        while True:
+        for frame_count in count():
             with timer("render"):
                 self.slide.render()
+            # pg.image.save(
+            #     pg.transform.smoothscale(self.screen, (1920, 1080)),
+            #     f"output/{frame_count}.png"
+            # )
             if self.refresh() == -1:
                 return

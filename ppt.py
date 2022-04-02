@@ -17,10 +17,20 @@ class HomeSlide(Slide):
 class ppt(PowerPointFaker):
     def __init__(self):
         # super().__init__([HomeSlide()], "2022年4月2日例会培训主视觉demo", pg.NOFRAME)
-        super().__init__([HomeSlide()], "2022年4月2日例会培训主视觉demo")
+        super().__init__([home := HomeSlide()], "2022年4月2日例会培训主视觉demo")
         # self.centering()
-        self.screen.blit(Asset("bgd", parse(16, 9)), (0, 0))
+        self.screen.blit(Asset.load("bgd", parse(16, 9)), (0, 0))
         pg.display.flip()
+
+        image_slide_1 = StaticSlide("bgd")
+        inter_slide_1 = InterSlide(home, image_slide_1)
+        self.slides.extend((inter_slide_1, image_slide_1))
+
+        image_slide_2 = StaticSlide("bgd")
+        inter_slide_2 = InterSlide(image_slide_1, image_slide_2)
+        self.slides.extend((inter_slide_2, image_slide_2))
+
+        Slide.current = home
 
 
 if __name__ == '__main__':

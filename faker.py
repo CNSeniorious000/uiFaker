@@ -189,12 +189,15 @@ class Faker(Curve):
     def screen(self):
         return pg.display.set_mode(self.size, self.flags, 24, vsync=True)
 
-    @timer("refresh")
+    @timer("sleeping")
     def refresh(self):
         # parse events
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return -1
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_F5:
+                    pg.display.flip()
         pg.display.set_caption(f"{self.title} @ FPS: {self.clock.get_fps():.2f}")
         # self.clock.tick(60)
         self.clock.tick_busy_loop(60)
