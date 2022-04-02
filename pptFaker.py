@@ -6,28 +6,96 @@ except ImportError:  # to support python3.9
         a, b = tee(iterable)
         next(b, None)
         return zip(a, b)
+import numpy as np, pygame as pg, random, cv2
+from pygame.gfxdraw import filled_circle
+from contextlib import suppress
+from collections import deque
 from enum import IntEnum, auto
-import numpy as np, random, cv2
 from faker import *
 
-# 80 for HD; 120 for FHD; 180 for QHD; 240 for UHD
-block_size = 120
+# 80 for HD; 120 for FHD; 160 for QHD; 240 for UHD
+block_size = 240
 block_shape = block_size, block_size
 screenx, screeny = 16 * block_size, 9 * block_size
 
 
 def parse(*numbers) -> int or list[int]:
-    if len(numbers) == 0:
+    if len(numbers) == 1:
         return round(block_size * numbers[0])
     else:
         return [round(block_size * n) for n in numbers]
 
 
-class AcrylicImage(AbstractLayer):
-    def __init__(self, image_name, x, y, w, h, luma=8, alpha=80):
+class Layer(AbstractLayer):
+    def __init__(self, x, y, w, h):
         self.anchor = parse(x, y)
         self.size = parse(w, h)
         self.rect = pg.Rect(self.anchor, self.size)
+
+
+class LeftTopCircles(Layer):
+    def __init__(self, x, y, length, gap, speed):
+        super().__init__(x, y, length, length)
+        self.length = parse(length)
+        self.gap = parse(gap)
+        self.speed = parse(speed)
+        self.buffer = pg.Surface(self.size, depth=24)
+        self.colors = [
+            (240, 240, 240),
+            (230, 230, 230)
+        ]
+        self.circles: deque[list[int, int]] = deque([[0, 0]])
+
+    def draw_circle(self, r, color_num):
+        filled_circle(self.buffer, 0, 0, r, self.colors[color_num])
+        # pg.draw.circle(self.buffer, self.colors[color_num], (0, 0), r, 0, 0, 0, 0, 1)
+
+    def get_different_color(self, n):
+        while (result := random.randrange(len(self.colors))) == n:
+            pass
+        return result
+
+    def draw(self):
+        self.buffer.blit(self.screen, (0, 0), self.rect)  # draw background
+        circles = self.circles
+
+        # update
+        for circle in circles:
+            circle[0] += self.speed
+
+        # render
+        for radius, color in reversed(circles):
+            self.draw_circle(radius, color)
+
+        # update
+        smallest = circles[0]
+        if smallest[0] > self.gap:
+            circles.appendleft([smallest[0] - self.gap, self.get_different_color(smallest[1])])
+        with suppress(IndexError):
+            second_biggest = circles[-2]
+            if second_biggest[0] > self.gap + self.length * 2 ** 0.5:
+                circles.pop()
+
+        return self.screen.blit(self.buffer, self.anchor)
+
+
+class ReversedLayer(AbstractLayer):
+    def __init__(self, x, y, another):
+        self.anchor = parse(x, y)
+        self.bound: Layer = another
+
+    @cached_property
+    def rect(self):
+        return pg.Rect(self.anchor, self.bound.rect.size)
+
+    @property
+    def buffer(self):
+        return pg.transform.rotate(self.bound.buffer, 180)
+
+
+class AcrylicImage(Layer):
+    def __init__(self, image_name, x, y, w, h, luma=10, alpha=80):
+        super().__init__(x, y, w, h)
         self.image = Asset(f"{image_name}_{block_size}", self.size, flags=pg.SRCALPHA)
         self.luma = luma, luma, luma
         self.alpha = pg.Surface(self.size, depth=24)
@@ -46,8 +114,6 @@ class AcrylicImage(AbstractLayer):
     def draw(self):
         rect = self.rect
         self.screen.blits(self.shaded)
-        self.screen.blit(self.alpha, rect)
-        self.screen.fill(self.luma, rect, pg.BLEND_ADD)
         with timer("blurring"):
             x, y = self.anchor
             w, h = self.size
@@ -57,6 +123,8 @@ class AcrylicImage(AbstractLayer):
                 (0, 0), sigmaX=7, sigmaY=7
             )
             del area
+        self.screen.blit(self.alpha, rect)
+        self.screen.fill(self.luma, rect, pg.BLEND_ADD)
         self.screen.blit(self.image, rect)
         return rect
 
