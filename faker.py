@@ -61,10 +61,7 @@ class Asset(pg.Surface):
                     elif max_scale <= 1:  # normal downscale
                         interpolation = cv2.INTER_LINEAR
                     elif w_scale == h_scale:
-                        if min_scale >= 2:  # pixel art
-                            interpolation = cv2.INTER_NEAREST
-                        else:  # photography
-                            interpolation = cv2.INTER_LANCZOS4
+                        interpolation = cv2.INTER_NEAREST if min_scale >= 2 else cv2.INTER_LANCZOS4
                     else:  # gradient background
                         interpolation = cv2.INTER_CUBIC
 
