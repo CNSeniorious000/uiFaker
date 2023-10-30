@@ -370,12 +370,10 @@ class InterSlide(Slide):
         self.last_.render()
         last_buffer: pg.Surface = self.last_.buffer
         self.next_.render()
-        next_buffer: pg.Surface = self.next_.buffer
-
-        if self.reverse:
-            pass
-        else:
+        if not self.reverse:
             self.screen.blit(last_buffer, (pos - self.w, 0))
+            next_buffer: pg.Surface = self.next_.buffer
+
             self.screen.blit(next_buffer, (pos, 0))
             pg.display.flip()
 
@@ -425,7 +423,7 @@ class PowerPointFaker(Faker):
         self.clock.tick_busy_loop(60)
 
     def mainloop(self):
-        for frame_count in count():
+        for _ in count():
             with timer("render"):
                 self.slide.render()
             # pg.image.save(
